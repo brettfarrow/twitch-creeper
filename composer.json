@@ -1,0 +1,6 @@
+{
+	"require": {
+		"vlucas/phpdotenv": "v1.0.9"
+	}
+}
+
