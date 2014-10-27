@@ -4,34 +4,36 @@ require 'vendor/autoload.php';
 
 Dotenv::load(__DIR__);
 
+const BASE_URL = "https://api.twitch.tv/kraken/streams";
+
 class TwitchCreeper {
-	
-	const BASE_URL = "https://api.twitch.tv/kraken/streams";
 	
 	public $twitchGame;
 	public $resultLimit;
-	public $firstRequestURL;
+	public $requestURL;
+	public $streamInfo;	
 	
 	public function __construct($game, $limit = 100) {
-		$twitchGame = str_replace(" ", "+", $game); // Use plus signs instead of spaces in call.
-		$resultLimit = $limit;
-		$firstRequestURL = BASE_URL . "?limit=" . $limit . "&game=" . $twitchGame;
+		$this->twitchGame = str_replace(" ", "+", $game); // Use plus signs instead of spaces in call.
+		$this->resultLimit = $limit;
+		$this->requestURL = BASE_URL . "?limit=" . $this->resultLimit . "&game=" . $this->twitchGame;
 	}
 	
 	public function beginCreeping () {
-		$streamInfo = getStreamInfo($firstRequestURL);
-		$currentRequestURL = updateStreamDB($streamInfo);
+		$currentRequestURL = $this->getRequestURL();
+		$streamInfo = $this->getStreamInfo($currentRequestURL);
+		$currentRequestURL = $this->updateStreamDB($streamInfo);
 		
 		// The last request will contain another stream URL that when fetched, 
 		// has zero entries. updateStreamDB() will check if that is the case
 		// and will return 0 when it happens. So it makes one extra request by design.
 		while (!empty($currentRequestURL)) {
-			$streamInfo = getStreamInfo($currentRequestURL); // get the ball rolling.
-			$currentRequestURL = updateStreamDB($streamInfo);
+			$streamInfo = $this->getStreamInfo($currentRequestURL); // get the ball rolling.
+			$currentRequestURL = $this->updateStreamDB($streamInfo);
 		}
 	}
 	
-	private function getStreamInfo ($apiURL) {
+	public function getStreamInfo ($apiURL) {
 		$clientIDHeader = "Client-ID: " . getenv('CLIENT_ID');
 
 		$ch = curl_init();
@@ -45,11 +47,11 @@ class TwitchCreeper {
 		curl_close($ch);
 
 		$streamData = json_decode($data, TRUE);
-		
+	
 		return $streamData;
 	}
 	
-	private function updateStreamDB ($streamList) {
+	public function updateStreamDB ($streamList) {
 		$pdoData = "mysql:host=localhost;dbname=" . getenv('DB_NAME');
 
 		try {
@@ -65,12 +67,12 @@ class TwitchCreeper {
 
 		$insertionDate = gmdate(DATE_ISO8601);
 
-		foreach ($streamList["streams"] as $streamInfo) {
+		foreach ($streamList["streams"] as $stream) {
 			$insertStatement->execute(
 				array(
-					$streamInfo["channel"]["name"], 
-					$streamInfo["channel"]["display_name"], 
-					$streamInfo["viewers"], 
+					$stream["channel"]["name"], 
+					$stream["channel"]["display_name"], 
+					$stream["viewers"], 
 					$insertionDate
 				)
 			);
@@ -81,5 +83,9 @@ class TwitchCreeper {
 		} else {
 			return; // Do nothing and end it already.
 		}		
+	}
+
+	public function getRequestURL () {
+		return $this->requestURL;
 	}
 }
