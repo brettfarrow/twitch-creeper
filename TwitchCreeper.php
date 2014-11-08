@@ -19,17 +19,14 @@ class TwitchCreeper {
 		$this->requestURL = BASE_URL . "?limit=" . $this->resultLimit . "&game=" . $this->twitchGame;
 	}
 	
+	// The last request will contain another stream URL that when fetched, 
+	// has zero entries. updateStreamDB() will check if that is the case
+	// and will return 0 when it happens. So it makes one extra request by design.
 	public function beginCreeping () {
-		$currentRequestURL = $this->getRequestURL();
-		$streamInfo = $this->getStreamInfo($currentRequestURL);
-		$currentRequestURL = $this->updateStreamDB($streamInfo);
-		
-		// The last request will contain another stream URL that when fetched, 
-		// has zero entries. updateStreamDB() will check if that is the case
-		// and will return 0 when it happens. So it makes one extra request by design.
-		while (!empty($currentRequestURL)) {
-			$streamInfo = $this->getStreamInfo($currentRequestURL); // get the ball rolling.
-			$currentRequestURL = $this->updateStreamDB($streamInfo);
+		while (!empty($this->getRequestURL())) {
+			$streamInfo = $this->getStreamInfo($this->getRequestURL()); // get the ball rolling.
+			$nextRequestURL = $this->updateStreamDB($streamInfo);
+			$this->setRequestURL($nextRequestURL);
 		}
 	}
 	
@@ -87,5 +84,9 @@ class TwitchCreeper {
 
 	public function getRequestURL () {
 		return $this->requestURL;
+	}
+	
+	public function setRequestURL ($target) {
+		$this->requestURL = $target;
 	}
 }
